@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAGI SYSTEM</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+:root {
+  --or: #ff6600;
+  --or2: #cc4400;
+  --or-glow: rgba(255,102,0,0.5);
+  --panel: #7ab8e8;
+  --panel2: #a8d4f5;
+  --bg: #000;
+  --dark: #080808;
+  --green: #00cc44;
+  --red: #ff2200;
+  --txt: #0a1a2a;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--or);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 30px;
+}
+
+/* Scanlines */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.13) 2px, rgba(0,0,0,0.13) 4px);
+  pointer-events:none;
+  z-index:9999;
+}
+
+@keyframes flicker { 0%,100%{opacity:1} 93%{opacity:.88} 94%{opacity:1} }
+body { animation: flicker 9s infinite; }
+
+/* ── HEADER ── */
+.hdr {
+  width:100%; max-width:1120px;
+  padding:12px 24px;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  border-bottom: 3px solid var(--green);
+  position:relative;
+}
+.hdr::after {
+  content:''; position:absolute; bottom:-7px; left:0; right:0;
+  height:1px; background:var(--green); opacity:.35;
+}
+.hdr-title {
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:30px; font-weight:900; color:var(--or);
+  text-shadow:0 0 24px var(--or-glow); letter-spacing:10px;
+}
+.hdr-sub { font-size:10px; color:var(--or2); letter-spacing:4px; margin-top:3px; }
+.hdr-info { text-align:right; font-size:10px; color:var(--or2); line-height:1.7; }
+.hdr-code { font-size:15px; color:var(--or); }
+
+/* ── STATUS BAR ── */
+.sbar {
+  width:100%; max-width:1120px;
+  display:flex; justify-content:space-between;
+  padding:5px 24px; font-size:10px; color:var(--or2);
+  border-bottom:1px solid var(--or2); margin-bottom:18px;
+}
+@keyframes blink { 50%{opacity:0} }
+.blink { animation:blink 1s infinite; }
+
+/* ── VERDICT BANNER ── */
+.vbanner {
+  width:100%; max-width:1120px;
+  display:flex; gap:10px; align-items:center;
+  padding:0 24px; margin-bottom:14px;
+}
+.vbanner-tag {
+  border:2px solid var(--or); padding:7px 20px;
+  font-family:'Noto Sans JP',sans-serif; font-size:22px; font-weight:900;
+  letter-spacing:8px; text-shadow:0 0 10px var(--or-glow);
+  white-space:nowrap;
+}
+.vbanner-result {
+  flex:1; border:2px solid var(--or); padding:8px 20px;
+  text-align:center; font-family:'Noto Sans JP',sans-serif;
+  font-size:22px; font-weight:900; letter-spacing:6px;
+  min-height:50px; display:flex; align-items:center; justify-content:center;
+  transition:all .4s;
+}
+.vbanner-result.ok  { color:#00ff66; border-color:#00ff66; text-shadow:0 0 20px rgba(0,255,102,.7); background:rgba(0,255,102,.04); }
+.vbanner-result.ng  { color:var(--red); border-color:var(--red); text-shadow:0 0 20px rgba(255,34,0,.7); background:rgba(255,34,0,.04); }
+.vbanner-result.tie { color:#ffcc00; border-color:#ffcc00; text-shadow:0 0 20px rgba(255,204,0,.7); background:rgba(255,204,0,.04); }
+
+/* ── PROGRESS ── */
+.prog { width:100%; max-width:1120px; padding:0 24px; margin-bottom:14px; display:none; }
+.prog-bar { height:3px; background:rgba(255,102,0,.2); overflow:hidden; }
+.prog-fill { height:100%; background:var(--or); box-shadow:0 0 8px var(--or-glow); width:0; transition:width .6s ease; }
+
+/* ── NODES ── */
+.nodes {
+  width:100%; max-width:1120px;
+  padding:0 24px; display:grid;
+  grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px;
+}
+
+.node {
+  display:flex; flex-direction:column;
+  background:var(--panel);
+  clip-path:polygon(0 0, 100% 0, 100% 88%, 86% 100%, 0 100%);
+  min-height:300px; position:relative; overflow:hidden;
+  transition:background .3s;
+}
+.node::before {
+  content:''; position:absolute; inset:0;
+  border:3px solid var(--or);
+  clip-path:inherit; pointer-events:none; z-index:10;
+  transition:border-color .4s;
+}
+.node.ok::before  { border-color:#00cc44; }
+.node.ng::before  { border-color:var(--red); }
+@keyframes pulse { 0%,100%{background:var(--panel)} 50%{background:#9fd0f5} }
+.node.thinking { animation:pulse 1.1s ease-in-out infinite; }
+
+.node-hdr {
+  background:var(--or); padding:9px 14px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.node-name {
+  font-family:'Noto Sans JP',sans-serif; font-size:17px;
+  font-weight:900; color:#000; letter-spacing:4px;
+}
+.node-id { font-size:9px; color:#333; }
+
+.node-role {
+  padding:7px 14px; font-size:10px; color:rgba(0,0,0,.55);
+  background:rgba(255,102,0,.12); border-bottom:1px solid rgba(255,102,0,.25);
+  font-style:italic; line-height:1.5;
+}
+
+.node-body {
+  flex:1; padding:14px; color:var(--txt);
+  font-size:12px; line-height:1.75;
+  overflow-y:auto; max-height:200px;
+}
+.node-body::-webkit-scrollbar { width:3px; }
+.node-body::-webkit-scrollbar-thumb { background:var(--or2); }
+
+.thinking-dots { display:flex; gap:5px; align-items:center; color:rgba(0,0,0,.45); font-size:11px; }
+.dot { width:6px; height:6px; background:var(--or2); border-radius:50%; animation:bdot .8s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes bdot { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-6px);opacity:1} }
+
+.node-verdict {
+  padding:10px 14px; min-height:46px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Sans JP',sans-serif; font-size:19px; font-weight:900;
+  letter-spacing:5px; border-top:2px solid var(--or);
+  background:rgba(0,0,0,.08); transition:all .4s;
+}
+.node-verdict.ok { color:#005522; border-top-color:#00aa44; }
+.node-verdict.ng { color:#880000; border-top-color:var(--red); }
+
+/* ── TALLY ── */
+.tally {
+  width:100%; max-width:1120px; padding:4px 24px 12px;
+  display:none; justify-content:center; gap:50px;
+  font-family:'Noto Sans JP',sans-serif; font-size:14px; font-weight:700;
+}
+.t-ok { color:#00cc44; } .t-ng { color:var(--red); }
+
+/* ── INPUT ── */
+.inp-sec { width:100%; max-width:1120px; padding:0 24px; }
+.inp-label { font-size:10px; letter-spacing:4px; color:var(--or2); margin-bottom:8px; }
+.inp-row { display:flex; gap:10px; }
+
+.qinput {
+  flex:1; background:transparent; border:2px solid var(--or);
+  color:var(--or); font-family:'Share Tech Mono',monospace;
+  font-size:14px; padding:12px 16px; outline:none; transition:all .2s;
+}
+.qinput::placeholder { color:var(--or2); opacity:.55; }
+.qinput:focus { border-color:#ffaa44; box-shadow:0 0 14px var(--or-glow); }
+
+.sbtn {
+  background:var(--or); color:#000; border:none;
+  font-family:'Noto Sans JP',sans-serif; font-size:17px; font-weight:900;
+  letter-spacing:5px; padding:12px 30px; cursor:pointer;
+  clip-path:polygon(0 0,100% 0,100% 72%,88% 100%,0 100%);
+  transition:all .2s; white-space:nowrap;
+}
+.sbtn:hover { background:#ffaa44; }
+.sbtn:disabled { background:var(--or2); cursor:not-allowed; }
+
+/* ── FOOTER ── */
+.foot {
+  width:100%; max-width:1120px; padding:10px 24px;
+  border-top:1px solid var(--or2); margin-top:20px;
+  display:flex; justify-content:space-between;
+  font-size:9px; color:var(--or2);
+}
+
+/* ── MODAL ── */
+.modal-bg {
+  position:fixed; inset:0; background:rgba(0,0,0,.92);
+  z-index:5000; display:flex; align-items:center; justify-content:center;
+}
+.modal {
+  border:2px solid var(--or); background:var(--dark);
+  padding:34px; max-width:520px; width:90%;
+  box-shadow:0 0 50px var(--or-glow);
+}
+.modal h2 {
+  font-family:'Noto Sans JP',sans-serif; font-size:22px;
+  color:var(--or); letter-spacing:8px; margin-bottom:12px;
+}
+.modal p { font-size:11px; line-height:1.9; color:var(--or2); margin-bottom:18px; }
+.modal a { color:var(--or); }
+.modal input {
+  width:100%; background:transparent; border:2px solid var(--or);
+  color:var(--or); font-family:'Share Tech Mono',monospace;
+  font-size:13px; padding:11px 15px; outline:none; margin-bottom:14px;
+}
+.modal input:focus { border-color:#ffaa44; box-shadow:0 0 10px var(--or-glow); }
+.modal-btn {
+  width:100%; background:var(--or); color:#000; border:none;
+  font-family:'Noto Sans JP',sans-serif; font-size:17px; font-weight:900;
+  letter-spacing:6px; padding:13px; cursor:pointer; transition:all .2s;
+}
+.modal-btn:hover { background:#ffaa44; }
+.modal-note { font-size:10px; color:rgba(255,102,0,.45); margin-top:10px; text-align:center; }
+.modal-err { color:var(--red); font-size:11px; margin-top:8px; min-height:16px; }
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>認証 / AUTH</h2>
+    <p>
+      MAGIシステムを起動するには <strong>Groq APIキー</strong> が必要です。<br>
+      キーはブラウザのメモリ内のみに保存され、外部送信はされません。<br><br>
+      取得先 → <a href="https://console.groq.com" target="_blank">console.groq.com</a><br>
+      「API Keys」→「Create API Key」でコピーしてください。<br>
+      （<code>gsk_...</code> から始まる文字列）
+    </p>
+    <input type="password" id="keyInput" placeholder="gsk_..." />
+    <div class="modal-err" id="keyErr"></div>
+    <button class="modal-btn" onclick="boot()">起　動</button>
+    <p class="modal-note">※ キーはこのページのメモリにのみ存在します</p>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <div class="hdr-title">提　訴</div>
+    <div class="hdr-sub">MAGI SYSTEM — STRATEGIC SELF-JUDGMENT COMPUTER v3.0</div>
+  </div>
+  <div class="hdr-info">
+    <div class="hdr-code">CODE : <span id="codeN">000</span></div>
+    <div>FILE : MAGI_SYS</div>
+    <div>EXTENTION : 6008</div>
+    <div>EX_MODE : OFF</div>
+    <div>PRIORITY : AAA</div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div class="sbar">
+  <span>SYSTEM STATUS : <span id="sysst" class="blink">STANDBY</span></span>
+  <span id="clk">--:--:--</span>
+  <span>MAGI-01 MELCHIOR ｜ MAGI-02 BALTHASAR ｜ MAGI-03 CASPAR</span>
+</div>
+
+<!-- VERDICT BANNER -->
+<div class="vbanner">
+  <div class="vbanner-tag">決　議</div>
+  <div class="vbanner-result" id="vresult">待機中 / STANDBY</div>
+  <div class="vbanner-tag">否　決</div>
+</div>
+
+<!-- PROGRESS -->
+<div class="prog" id="prog">
+  <div class="prog-bar"><div class="prog-fill" id="pfill"></div></div>
+</div>
+
+<!-- NODES -->
+<div class="nodes">
+
+  <div class="node" id="n0">
+    <div class="node-hdr">
+      <span class="node-name">MELCHIOR</span>
+      <span class="node-id">MAGI-01 / GROQ</span>
+    </div>
+    <div class="node-role">科学者の知性 ― 論理・分析・客観性</div>
+    <div class="node-body" id="b0"><span style="opacity:.35;font-size:11px">AWAITING INPUT...</span></div>
+    <div class="node-verdict" id="v0">――</div>
+  </div>
+
+  <div class="node" id="n1">
+    <div class="node-hdr">
+      <span class="node-name">BALTHASAR</span>
+      <span class="node-id">MAGI-02 / GROQ</span>
+    </div>
+    <div class="node-role">母の感情 ― 共感・倫理・人道的判断</div>
+    <div class="node-body" id="b1"><span style="opacity:.35;font-size:11px">AWAITING INPUT...</span></div>
+    <div class="node-verdict" id="v1">――</div>
+  </div>
+
+  <div class="node" id="n2">
+    <div class="node-hdr">
+      <span class="node-name">CASPAR</span>
+      <span class="node-id">MAGI-03 / GROQ</span>
+    </div>
+    <div class="node-role">女の本能 ― 直感・戦略・現実主義</div>
+    <div class="node-body" id="b2"><span style="opacity:.35;font-size:11px">AWAITING INPUT...</span></div>
+    <div class="node-verdict" id="v2">――</div>
+  </div>
+
+</div>
+
+<!-- TALLY -->
+<div class="tally" id="tally">
+  <span class="t-ok">賛成 <span id="okc">0</span> / 3</span>
+  <span class="t-ng">反対 <span id="ngc">0</span> / 3</span>
+</div>
+
+<!-- INPUT -->
+<div class="inp-sec">
+  <div class="inp-label">// QUERY INPUT — MAGIへの提訴内容を入力してください</div>
+  <div class="inp-row">
+    <input class="qinput" id="qi" type="text"
+      placeholder="例：この計画を実行すべきか？"
+      onkeydown="if(event.key==='Enter')go()" />
+    <button class="sbtn" id="sbtn" onclick="go()">決　議</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="foot">
+  <span>NERV CENTRAL DOGMA — MAGI DELIBERATION SYSTEM</span>
+  <span>POWERED BY GROQ API — LLAMA 3.3 70B</span>
+  <span>© 2025 SYNTHETIC INTELLIGENCE DIVISION</span>
+</div>
+
+<script>
+let KEY = '';
+
+const PERSONAS = [
+  {
+    sys: `あなたはMAGIシステムの「メルキオール」ノードです。科学者の知性を担い、論理・分析・客観的データのみで判断します。感情を排し、純粋な合理性から判断してください。
+必ず以下のJSON形式のみで返答してください（前後に説明不要）：
+{"verdict":"賛成","reason":"理由を2〜3文で"}
+または
+{"verdict":"反対","reason":"理由を2〜3文で"}`
+  },
+  {
+    sys: `あなたはMAGIシステムの「バルタザール」ノードです。母の感情・倫理を担い、人道的観点・共感・関係者への影響を最重視して判断します。
+必ず以下のJSON形式のみで返答してください（前後に説明不要）：
+{"verdict":"賛成","reason":"理由を2〜3文で"}
+または
+{"verdict":"反対","reason":"理由を2〜3文で"}`
+  },
+  {
+    sys: `あなたはMAGIシステムの「カスパー」ノードです。女の本能・戦略を担い、現実的リスクと利益・直感的戦略・長期的成功の観点から判断します。
+必ず以下のJSON形式のみで返答してください（前後に説明不要）：
+{"verdict":"賛成","reason":"理由を2〜3文で"}
+または
+{"verdict":"反対","reason":"理由を2〜3文で"}`
+  }
+];
+
+function boot() {
+  const k = document.getElementById('keyInput').value.trim();
+  if (!k.startsWith('gsk_')) {
+    document.getElementById('keyErr').textContent = '⚠ Groq APIキーは gsk_... から始まります';
+    return;
+  }
+  KEY = k;
+  document.getElementById('modal').style.display = 'none';
+  document.getElementById('sysst').textContent = 'ONLINE';
+  document.getElementById('sysst').style.color = '#00ff66';
+  document.getElementById('sysst').style.animation = 'none';
+  setInterval(() => {
+    document.getElementById('clk').textContent = new Date().toTimeString().split(' ')[0];
+  }, 1000);
+  setInterval(() => {
+    document.getElementById('codeN').textContent = String(Math.floor(Math.random()*999)).padStart(3,'0');
+  }, 2800);
+}
+
+function setThinking(i) {
+  document.getElementById(`n${i}`).className = 'node thinking';
+  document.getElementById(`b${i}`).innerHTML = '<div class="thinking-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div>&nbsp;&nbsp;解析中...</div>';
+  document.getElementById(`v${i}`).className = 'node-verdict';
+  document.getElementById(`v${i}`).textContent = '――';
+}
+
+function setDone(i, verdict, reason) {
+  const ok = verdict === '賛成';
+  document.getElementById(`n${i}`).className = `node ${ok?'ok':'ng'}`;
+  document.getElementById(`b${i}`).textContent = reason;
+  const vel = document.getElementById(`v${i}`);
+  vel.className = `node-verdict ${ok?'ok':'ng'}`;
+  vel.textContent = ok ? '賛成 ✓' : '反対 ✗';
+}
+
+function setError(i, msg) {
+  document.getElementById(`n${i}`).className = 'node ng';
+  document.getElementById(`b${i}`).textContent = `エラー: ${msg}`;
+  document.getElementById(`v${i}`).textContent = 'ERROR';
+}
+
+async function queryGemini(persona, question) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${KEY}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.7,
+      max_tokens: 512,
+      messages: [
+        { role: 'system', content: persona.sys },
+        { role: 'user', content: `提訴内容：${question}` }
+      ]
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json();
+    throw new Error(e.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || '';
+  const match = text.match(/\{[\s\S]*?\}/);
+  if (!match) throw new Error('JSON parse failed: ' + text.slice(0,80));
+  return JSON.parse(match[0]);
+}
+
+async function go() {
+  const q = document.getElementById('qi').value.trim();
+  if (!q) return;
+  if (!KEY) { alert('Groq APIキーを入力してください'); return; }
+
+  const btn = document.getElementById('sbtn');
+  btn.disabled = true;
+
+  // Reset
+  const vr = document.getElementById('vresult');
+  vr.className = 'vbanner-result';
+  vr.textContent = '審議中 / DELIBERATING...';
+  document.getElementById('tally').style.display = 'none';
+
+  const prog = document.getElementById('prog');
+  const fill = document.getElementById('pfill');
+  prog.style.display = 'block';
+  fill.style.width = '0%';
+
+  [0,1,2].forEach(i => setThinking(i));
+
+  const results = [];
+
+  for (let i = 0; i < 3; i++) {
+    fill.style.width = `${Math.round((i/3)*85)}%`;
+    try {
+      const r = await queryGemini(PERSONAS[i], q);
+      results.push({ i, ...r });
+      setDone(i, r.verdict, r.reason);
+    } catch(e) {
+      setError(i, e.message);
+      results.push({ i, verdict: '反対', reason: 'エラー' });
+    }
+  }
+
+  fill.style.width = '100%';
+
+  const ok = results.filter(r => r.verdict === '賛成').length;
+  const ng = results.filter(r => r.verdict === '反対').length;
+
+  document.getElementById('okc').textContent = ok;
+  document.getElementById('ngc').textContent = ng;
+  document.getElementById('tally').style.display = 'flex';
+
+  if (ok >= 2) {
+    vr.className = 'vbanner-result ok';
+    vr.textContent = '可　決 / APPROVED';
+  } else if (ng >= 2) {
+    vr.className = 'vbanner-result ng';
+    vr.textContent = '否　決 / REJECTED';
+  } else {
+    vr.className = 'vbanner-result tie';
+    vr.textContent = '分　裂 / SPLIT';
+  }
+
+  setTimeout(() => { prog.style.display = 'none'; fill.style.width = '0%'; }, 1200);
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
